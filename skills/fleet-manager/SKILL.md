@@ -13,7 +13,10 @@ Workers run in sessions `worker-1..N`, each in its own git worktree/branch, foll
 ## Roster & ledger
 
 - Read `fleet/roster.tsv` in the repo to learn each worker's `name`, `model`, `role`,
-  `worktree_path`, and `branch`. `fleet-init.sh` writes it.
+  `session`, `worktree_path`, and `branch`. `fleet-init.sh` writes it.
+- **Always use the `session` column as the tmux target** for every `send-keys` /
+  `capture-pane` — it already includes any `SESSION_PREFIX` (e.g. `A-worker-1`). Never
+  assume the target is literally `worker-1`. Your own session is given in your system prompt.
 - Maintain `fleet/tasks.md` as your private ledger: one row per task with
   `id | description | deps | assignee | status(pending|assigned|verifying|done|blocked|failed)`.
   This is YOUR memory, not a channel to workers — you still talk to workers only via tmux.
@@ -37,20 +40,21 @@ Claude Code TUIs — a combined `send-keys "..." Enter` gets the Enter swallowed
 bracketed-paste input (text appears but never submits). ALWAYS send text and Enter as
 separate calls, or use the helper:
 ```
-fleet-send <worker> "task=<id> <clear self-contained instruction incl. acceptance criteria>"
-# equivalent manual form:
-#   tmux send-keys -t <worker> -l "task=<id> ..."
+fleet-send <session> "task=<id> <clear self-contained instruction incl. acceptance criteria>"
+# <session> is the roster 'session' value (prefix included). Equivalent manual form:
+#   tmux send-keys -t <session> -l "task=<id> ..."
 #   sleep 0.4
-#   tmux send-keys -t <worker> Enter
+#   tmux send-keys -t <session> Enter
 ```
 After sending, capture the pane once to confirm the prompt cleared (message was
 submitted, not left sitting in the input box). If it's still in the box, send a lone
 `Enter`. Give the worker everything it needs — it cannot see your ledger. Mark task `assigned`.
 
 ### 3. Poll (save tokens — poll sparsely)
-Between polls, `sleep 30` (up to 60). For each `assigned`/`verifying` worker:
+Between polls, `sleep 30` (up to 60). For each `assigned`/`verifying` worker (use its
+`session` value as the target):
 ```
-tmux capture-pane -t <worker> -p -S -200
+tmux capture-pane -t <session> -p -S -200
 ```
 Apply the state machine:
 - Pane contains `===WORKER_DONE task=<id> status=...===` → task finished; read `status`/`note`.

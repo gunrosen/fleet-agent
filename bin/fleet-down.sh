@@ -29,6 +29,7 @@ fi
 [[ -n "$CONFIG_FILE" && -f "$CONFIG_FILE" ]] || { echo "no config found (see fleet-init --help)" >&2; exit 1; }
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
+SESSION_PREFIX="${SESSION_PREFIX:-}"
 
 kill_sess() {
   local s="$1"
@@ -37,11 +38,11 @@ kill_sess() {
   fi
 }
 
-echo "== Fleet down =="
-kill_sess "mgr"
+echo "== Fleet down == (prefix '${SESSION_PREFIX:-<none>}')"
+kill_sess "${SESSION_PREFIX}mgr"
 for spec in "${WORKERS[@]}"; do
   IFS=: read -r name _ _ <<< "$spec"
-  kill_sess "$name"
+  kill_sess "${SESSION_PREFIX}${name}"
 done
 
 if [[ "$WIPE" -eq 1 ]]; then

@@ -52,16 +52,22 @@ fi
 git -C "$TARGET_REPO" rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1 || {
   echo "base branch '$BASE_BRANCH' not found in $TARGET_REPO" >&2; exit 1; }
 
+# Namespace for tmux session names so multiple projects can run in parallel.
+# Empty = plain names (mgr, worker-1). Set e.g. SESSION_PREFIX="A-" -> A-mgr, A-worker-1.
+SESSION_PREFIX="${SESSION_PREFIX:-}"
+
 mkdir -p "$WORKTREE_ROOT"
 mkdir -p "$TARGET_REPO/fleet"
 ROSTER="$TARGET_REPO/fleet/roster.tsv"
 : > "$ROSTER"
-printf 'name\tmodel\trole\tworktree_path\tbranch\n' >> "$ROSTER"
+# `session` is the exact tmux target (prefix included); `name` is the bare worker id.
+printf 'name\tmodel\trole\tsession\tworktree_path\tbranch\n' >> "$ROSTER"
 
 echo "== Fleet init =="
 echo "target repo : $TARGET_REPO (base=$BASE_BRANCH)"
 echo "worktrees   : $WORKTREE_ROOT"
 echo "manager     : $MANAGER_MODEL"
+echo "prefix      : '${SESSION_PREFIX:-<none>}'"
 
 # --- launch helper: start claude inside a fresh tmux session -----------------
 # $1 session name, $2 workdir, $3 model, $4 identity system-prompt
@@ -85,6 +91,7 @@ for spec in "${WORKERS[@]}"; do
   IFS=: read -r name model role <<< "$spec"
   branch="fleet/${name}"
   wt="$WORKTREE_ROOT/$name"
+  sess="${SESSION_PREFIX}${name}"
 
   if [[ -d "$wt" ]]; then
     echo "  ~ worktree exists: $wt (reusing)"
@@ -93,18 +100,19 @@ for spec in "${WORKERS[@]}"; do
     echo "  + worktree $wt on branch $branch"
   fi
 
-  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$model" "$role" "$wt" "$branch" >> "$ROSTER"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$model" "$role" "$sess" "$wt" "$branch" >> "$ROSTER"
 
-  ident="You are Fleet worker '$name' (role=$role). Your worktree is '$wt' on branch '$branch'. Follow the fleet-worker skill: work only here, commit to this branch, and end each task with the ===WORKER_DONE...=== marker."
-  launch "$name" "$wt" "$model" "$ident"
+  ident="You are Fleet worker '$name' (role=$role), tmux session '$sess'. Your worktree is '$wt' on branch '$branch'. Follow the fleet-worker skill: work only here, commit to this branch, and end each task with the ===WORKER_DONE...=== marker."
+  launch "$sess" "$wt" "$model" "$ident"
 done
 
 # --- manager -----------------------------------------------------------------
-mgr_ident="You are the Fleet MANAGER (session mgr). Repo: $TARGET_REPO, base branch: $BASE_BRANCH, worktrees under: $WORKTREE_ROOT. Read fleet/roster.tsv for the worker list. Follow the fleet-manager skill: decompose, assign via tmux send-keys, poll for ===WORKER_DONE=== markers, verify against git + tests, then integrate. Do not write feature code yourself."
-launch "mgr" "$TARGET_REPO" "$MANAGER_MODEL" "$mgr_ident"
+mgr_sess="${SESSION_PREFIX}mgr"
+mgr_ident="You are the Fleet MANAGER (tmux session '$mgr_sess'). Repo: $TARGET_REPO, base branch: $BASE_BRANCH, worktrees under: $WORKTREE_ROOT. Read fleet/roster.tsv for the worker list and use its 'session' column as the exact tmux target for every send-keys/capture-pane. Follow the fleet-manager skill: decompose, assign, poll for ===WORKER_DONE=== markers, verify against git + tests, then integrate. Do not write feature code yourself."
+launch "$mgr_sess" "$TARGET_REPO" "$MANAGER_MODEL" "$mgr_ident"
 
 echo
 echo "Roster written to: $ROSTER"
-echo "Attach:   tmux attach -t mgr        (or worker-1, worker-2, ...)"
-echo "Kick off: tmux send-keys -t mgr \"<your feature request>\" Enter"
-echo "Tear down: $SCRIPT_DIR/fleet-down.sh"
+echo "Attach:   tmux attach -t ${mgr_sess}        (or ${SESSION_PREFIX}worker-1, ...)"
+echo "Kick off: fleet-send ${mgr_sess} \"<your feature request>\""
+echo "Tear down: fleet-down${SESSION_PREFIX:+  (same SESSION_PREFIX in config)}"

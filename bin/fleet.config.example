@@ -12,6 +12,12 @@ BASE_BRANCH="${BASE_BRANCH:-main}"
 # Where worker worktrees are created (sibling of the repo keeps it clean).
 WORKTREE_ROOT="${WORKTREE_ROOT:-$TARGET_REPO/../fleet-wt}"
 
+# Namespace for tmux session names. Leave empty for a single project (sessions:
+# mgr, worker-1, ...). To run MULTIPLE projects in parallel, give each its own
+# prefix so their sessions don't collide, e.g. SESSION_PREFIX="A-" -> A-mgr,
+# A-worker-1. Keep the SAME prefix in this project's config for fleet-down.
+SESSION_PREFIX="${SESSION_PREFIX:-}"
+
 # Model for the manager session.
 MANAGER_MODEL="${MANAGER_MODEL:-opus}"
 
