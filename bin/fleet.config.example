@@ -1,0 +1,28 @@
+# Fleet configuration example.
+# Copy to ~/.config/fleet/fleet.config (install.sh does this) and edit for your project.
+# Sourced by fleet-init / fleet-down; nothing is hard-coded in the scripts.
+# Every value honors an env override, e.g. TARGET_REPO=/path fleet-init
+
+# REQUIRED: absolute path to the target git repo the fleet works on.
+TARGET_REPO="${TARGET_REPO:-/absolute/path/to/your/project}"
+
+# Branch workers fork from and the manager integrates into.
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
+# Where worker worktrees are created (sibling of the repo keeps it clean).
+WORKTREE_ROOT="${WORKTREE_ROOT:-$TARGET_REPO/../fleet-wt}"
+
+# Model for the manager session.
+MANAGER_MODEL="${MANAGER_MODEL:-opus}"
+
+# Worker roster: one entry per worker as  name:model:role
+#   role=impl  -> feature implementation (use sonnet)
+#   role=test  -> narrow work: run tests/lint/format/summarize (use haiku)
+WORKERS=(
+  "worker-1:sonnet:impl"
+  "worker-2:haiku:test"
+)
+
+# Extra flags passed to every `claude` invocation.
+# --dangerously-skip-permissions lets agents run unattended; drop it to keep prompts.
+CLAUDE_FLAGS="${CLAUDE_FLAGS:---dangerously-skip-permissions}"

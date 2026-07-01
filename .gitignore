@@ -1,0 +1,8 @@
+.DS_Store
+*.bak.*
+# a real, machine-local config (only the .example is tracked)
+bin/fleet.config
+fleet.config
+# manager runtime artifacts, if ever created inside the repo
+fleet/ident-*.txt
+fleet/roster.tsv
