@@ -3,7 +3,7 @@
 
 # Resolve and source the fleet config, then fill derived defaults.
 # Order (first hit wins): $1 (--config) > $FLEET_CONFIG > ./fleet.config > ~/.config/fleet/fleet.config
-# Returns 1 if no config is found. Sets FLEET_CONFIG_FILE.
+# Returns 1 if no config is found. Sets FLEET_CONFIG_FILE and FLEET_REGISTRY.
 fleet_load_config() {
   local cfg="${1:-${FLEET_CONFIG:-}}" c
   if [[ -z "$cfg" ]]; then
@@ -17,6 +17,7 @@ fleet_load_config() {
   source "$cfg"
   SESSION_PREFIX="${SESSION_PREFIX:-}"
   KILL_GRACE="${KILL_GRACE:-5}"
+  FLEET_REGISTRY="$TARGET_REPO/fleet/procs.tsv"
 }
 
 # Print every fleet tmux session name for the loaded config (manager first).
@@ -86,6 +87,44 @@ fleet_kill() {
     done
   fi
   echo "${#targets[@]}"
+}
+
+# Process start time as printed by ps (stable for the life of a PID, survives exec).
+fleet_lstart() {
+  { ps -o lstart= -p "$1" 2>/dev/null || true; } | sed 's/^ *//; s/ *$//'
+}
+
+# Registry (procs.tsv) row layout, tab-separated:
+#   pid  started  session  label  cwd  command
+# A row is live only if its PID still has the recorded start time, so a recycled PID
+# belonging to an unrelated process is never matched.
+
+# Print the registry rows whose process is still live.
+fleet_reg_live() {
+  local reg="$1" line pid started
+  [[ -f "$reg" ]] || return 0
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    IFS=$'\t' read -r pid started _ <<< "$line"
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    [[ "$(fleet_lstart "$pid")" == "$started" ]] && printf '%s\n' "$line"
+  done < "$reg"
+  return 0  # a dead last row must not fail callers running under `set -e -o pipefail`
+}
+
+# Rewrite the registry keeping only live rows whose PID is not in $2 (space-separated).
+fleet_reg_prune() {
+  local reg="$1" drop=" ${2:-} " tmp line pid
+  [[ -f "$reg" ]] || return 0
+  tmp="$(mktemp "$reg.XXXXXX")"
+  {
+    grep '^#' "$reg" || true
+    fleet_reg_live "$reg" | while IFS= read -r line; do
+      pid="${line%%$'\t'*}"
+      [[ "$drop" == *" $pid "* ]] || printf '%s\n' "$line"
+    done
+  } > "$tmp"
+  mv "$tmp" "$reg"
 }
 
 # PIDs re-parented to launchd (ppid 1) whose cwd is inside directory $1 — leftovers of an

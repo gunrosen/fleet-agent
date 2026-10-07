@@ -22,6 +22,7 @@ fleet/
     ├── fleet-send.sh            # 2-step send to a Claude Code TUI (fixes swallowed Enter)
     ├── fleet-down.sh            # tear down sessions + every leftover process (--wipe: worktrees)
     ├── fleet-status.sh          # what is still running: per-session CPU/RAM, idle, orphans
+    ├── fleet-proc.sh            # registry for agents' background processes (run/list/stop)
     ├── fleet-lib.sh             # shared helpers sourced by the scripts above
     └── fleet.config.example
 ```
@@ -33,7 +34,7 @@ git clone <repo-url> fleet && cd fleet
 ./install.sh                 # symlinks (git pull auto-updates); use --copy for detached copies
 ```
 Installs: skills → `~/.claude/skills/` · commands → `~/.local/bin/` (`fleet-init`,
-`fleet-send`, `fleet-down`, `fleet-status`) · config → `~/.config/fleet/fleet.config`.
+`fleet-send`, `fleet-down`, `fleet-status`, `fleet-proc`) · config → `~/.config/fleet/fleet.config`.
 Re-running `./install.sh` after a `git pull` picks up new commands (existing links are kept).
 Add to PATH if needed: `export PATH="$HOME/.local/bin:$PATH"`.
 
@@ -92,12 +93,16 @@ terminal (`ppid 1`); closing the tab only detaches the client. Agents, their MCP
 dev server they started keep running — and keep using CPU, RAM and tokens — until `fleet-down`.
 
 - `fleet-status` — per session: attached?, idle time, process count, CPU% and RSS of the whole
-  process tree; plus orphans inside the worktrees.
+  process tree; plus registered background processes and orphans inside the worktrees.
 - `fleet-down` — collects every process **before** closing the sessions (agent + MCP servers +
-  background shells, `ppid 1` orphans whose cwd is in `WORKTREE_ROOT`),
-  closes the sessions, then SIGTERM → wait `KILL_GRACE` s → SIGKILL.
+  background shells, registered `fleet-proc` jobs, `ppid 1` orphans whose cwd is in
+  `WORKTREE_ROOT`), closes the sessions, then SIGTERM → wait `KILL_GRACE` s → SIGKILL.
   Background shells an agent starts run in their own process session, so a plain
   `tmux kill-session` never reaches them. `fleet-down --dry-run` previews the list.
+- `fleet-proc run <label> -- <cmd>` — agents start long-running processes through this (the
+  skills require it). It records PID + start time in `$TARGET_REPO/fleet/procs.tsv` and `exec`s
+  the command, so the process stays traceable even after the agent that started it dies.
+  `fleet-proc list` / `fleet-proc stop <label|pid|--all>`.
 
 ## Gotchas baked into the design
 

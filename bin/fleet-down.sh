@@ -6,6 +6,7 @@
 # started (dev servers, mvn, grunt, watchers) run in their own sessions, never get that
 # signal, and would be orphaned to launchd. So the whole tree is collected first:
 #   * every descendant of each session's pane (agent + MCP servers + background shells)
+#   * live processes registered via `fleet-proc run` (even if their agent already died)
 #   * orphans (ppid 1) whose cwd is inside WORKTREE_ROOT
 # then SIGTERM, wait KILL_GRACE seconds, SIGKILL survivors.
 #
@@ -48,7 +49,9 @@ for s in $(fleet_sessions); do
   sessions+=("$s")
   roots+=($(tmux list-panes -s -t "=$s" -F '#{pane_pid}'))
 done
-victims="$(fleet_tree ${roots[@]+"${roots[@]}"} | tr '\n' ' ')"
+reg_pids="$(fleet_reg_live "$FLEET_REGISTRY" | cut -f1)"
+# shellcheck disable=SC2086
+victims="$(fleet_tree ${roots[@]+"${roots[@]}"} $reg_pids | tr '\n' ' ')"
 
 if [[ "$DRY" -eq 1 ]]; then
   orphans="$(fleet_orphans_in "$WORKTREE_ROOT" | tr '\n' ' ')"
@@ -78,6 +81,7 @@ if [[ -n "${left// /}" ]]; then
   n="$(fleet_kill $left)"
   echo "  - stopped $n leftover process(es) (agents, MCP servers, background jobs)"
 fi
+fleet_reg_prune "$FLEET_REGISTRY"
 
 if [[ "$WIPE" -eq 1 ]]; then
   for spec in "${WORKERS[@]}"; do

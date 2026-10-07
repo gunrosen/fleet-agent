@@ -85,7 +85,8 @@ task to a worker.
 ### 7. Liveness
 Keep the loop alive by interleaving `Bash(sleep 30)` + `capture-pane` yourself, or run this
 session under the `/loop` skill to self-pace. Stop when every task is `done` (report a summary)
-or when you need human input.
+or when you need human input. Before stopping, run `fleet-proc list` and stop every background
+process the user did not explicitly ask to keep running (`fleet-proc stop <label>` / `--all`).
 
 ## Guardrails
 - Poll sparsely and `grep` the pane for the marker rather than re-reading everything — keeps
@@ -93,6 +94,12 @@ or when you need human input.
 - Put a soft timeout on each task (track assign time in the ledger). If a worker shows neither
   marker nor spinner past the timeout, intervene.
 - You are the ONLY agent that merges. Workers never touch each other's branches.
+- **Background processes** (dev servers, watchers, `run_in_background` jobs) — yours and the
+  ones you ask workers to start — must go through `fleet-proc run <label> -- <cmd>`, never bare.
+  Unregistered processes are invisible to cleanup and keep running after the terminal closes.
+  Stop them with `fleet-proc stop <label>` as soon as they are no longer needed.
+- The fleet keeps running when the user's terminal closes (tmux only detaches). `fleet-status`
+  shows per-session CPU/RAM; `fleet-down` stops sessions plus every leftover process.
 
 ## Reference
 tmux mechanics (`list-sessions`, `send-keys`, `capture-pane`, scrollback `-S -N`) are in the

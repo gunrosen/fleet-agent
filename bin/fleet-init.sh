@@ -52,6 +52,14 @@ git -C "$TARGET_REPO" rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1 || {
 # SESSION_PREFIX namespaces tmux session names so multiple projects can run in parallel
 # (empty = plain names: mgr, worker-1). fleet_load_config defaults it.
 
+# Background processes registered by a previous run that are still alive would be orphaned
+# by a fresh fleet — point at the cleanup instead of silently piling up.
+stale="$(fleet_reg_live "$FLEET_REGISTRY" | wc -l | tr -d ' ')"
+if [[ "$stale" -gt 0 ]]; then
+  echo "  ! $stale background process(es) from a previous run are still alive ($FLEET_REGISTRY)."
+  echo "    Inspect: fleet-status   Stop: fleet-proc stop --all  (or fleet-down)"
+fi
+
 mkdir -p "$WORKTREE_ROOT"
 mkdir -p "$TARGET_REPO/fleet"
 ROSTER="$TARGET_REPO/fleet/roster.tsv"
@@ -77,7 +85,9 @@ launch() {
   local identf="$TARGET_REPO/fleet/ident-$sess.txt"
   printf '%s\n' "$ident" > "$identf"
   # -c sets pane cwd; run claude as the pane command so send-keys talks to the agent.
+  # FLEET_PROCS / FLEET_SESSION tell `fleet-proc` (run from the agent's Bash) where to register.
   tmux new-session -d -s "$sess" -c "$dir" \
+    -e "FLEET_PROCS=$FLEET_REGISTRY" -e "FLEET_SESSION=$sess" \
     "claude --model $model $CLAUDE_FLAGS --append-system-prompt-file '$identf'"
   echo "  + tmux session '$sess' ($model) in $dir"
 }

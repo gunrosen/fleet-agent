@@ -4,7 +4,7 @@
 # Closing a terminal tab only DETACHES tmux: agents, their MCP servers and any background
 # jobs keep running (and can keep burning CPU, memory and tokens). This lists, per session:
 # attached clients, idle time, process count, CPU% and RSS of the whole process tree; then
-# orphans left inside the worktrees.
+# processes registered via `fleet-proc run`, and orphans left inside the worktrees.
 #
 # Usage:
 #   ./fleet-status.sh [--config path]
@@ -56,6 +56,21 @@ done
 printf "$fmt" TOTAL "" "" "" "$total_cpu" "$total_mb" ""
 
 echo
+echo "-- background processes registered via fleet-proc ($FLEET_REGISTRY)"
+live="$(fleet_reg_live "$FLEET_REGISTRY")"
+if [[ -z "$live" ]]; then
+  echo "  none"
+else
+  printf '  %-7s %-18s %-14s %-8s %-6s %-7s %s\n' PID SESSION LABEL UPTIME CPU% 'RSS(MB)' COMMAND
+  while IFS=$'\t' read -r pid _ sess label _ cmd; do
+    # shellcheck disable=SC2046
+    read -r cpu mb <<< "$(fleet_usage $(fleet_tree "$pid"))"
+    up="$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+    printf '  %-7s %-18s %-14s %-8s %-6s %-7s %s\n' "$pid" "$sess" "$label" "$up" "$cpu" "$mb" "${cmd:0:60}"
+  done <<< "$live"
+fi
+
+echo
 echo "-- orphans (ppid 1) with cwd inside $WORKTREE_ROOT"
 orphans="$(fleet_orphans_in "$WORKTREE_ROOT" | tr '\n' ',')"
 if [[ -z "$orphans" ]]; then
@@ -65,7 +80,7 @@ else
     | awk '{ printf "  %6s %10s %6dMB  %s\n", $1, $2, $3 / 1024, substr($0, index($0, $4), 100) }'
 fi
 
-if [[ "$running" -gt 0 || -n "$orphans" ]]; then
+if [[ "$running" -gt 0 || -n "$live" || -n "$orphans" ]]; then
   echo
   echo "Stop everything: fleet-down   (preview with: fleet-down --dry-run)"
 fi

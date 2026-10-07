@@ -22,6 +22,21 @@ Your identity (name, model role, worktree path, branch) is provided in your syst
 - **Never guess when blocked.** If the task is ambiguous or you lack information, stop and emit
   a `blocked` marker instead of inventing requirements.
 
+## Background processes (dev servers, watchers, anything long-running)
+
+Processes you leave running outlive your task — and even your session — burning CPU/RAM.
+
+- **Always start them through the registry** so they can be found and stopped later:
+  ```
+  fleet-proc run <label> -- <cmd> [args...]     # e.g. run in background:
+  fleet-proc run backend -- mvn spring-boot:run > /tmp/backend.log 2>&1
+  ```
+  Never start a long-running process without `fleet-proc run`.
+- **Stop them before you report:** `fleet-proc stop <label>` once you no longer need them, and in
+  any case before emitting the `WORKER_DONE` marker. Only leave one running if the task
+  explicitly says so — then name its label in the marker `note`.
+- `fleet-proc list` shows what is still registered and alive.
+
 ## Per-task workflow
 
 When the manager sends you a task (it will include a `task=<id>`):
@@ -32,7 +47,8 @@ When the manager sends you a task (it will include a `task=<id>`):
 3. **Self-verify**: run the project's tests / lint / typecheck relevant to your change. Fix
    until green. If there is no test for your change and the task implies one, add it.
 4. **Commit**: `git add -A && git commit -m "<task-id>: <concise message>"`. Do not push.
-5. **Report** by printing EXACTLY ONE marker line as your final output (see below).
+5. **Clean up**: stop every background process you started (`fleet-proc stop <label>`).
+6. **Report** by printing EXACTLY ONE marker line as your final output (see below).
 
 ## The completion marker (critical)
 
