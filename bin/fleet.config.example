@@ -32,3 +32,7 @@ WORKERS=(
 # Extra flags passed to every `claude` invocation.
 # --dangerously-skip-permissions lets agents run unattended; drop it to keep prompts.
 CLAUDE_FLAGS="${CLAUDE_FLAGS:---dangerously-skip-permissions}"
+
+# Seconds fleet-down waits after SIGTERM before SIGKILL-ing survivors
+# (a hung agent or a slow-to-exit dev server). Integer.
+KILL_GRACE="${KILL_GRACE:-5}"
