@@ -21,6 +21,7 @@ fleet/
     ├── fleet-init.sh            # spin up manager + workers (worktrees + tmux)
     ├── fleet-send.sh            # 2-step send to a Claude Code TUI (fixes swallowed Enter)
     ├── fleet-down.sh            # tear down sessions + every leftover process (--wipe: worktrees)
+    ├── fleet-status.sh          # what is still running: per-session CPU/RAM, idle, orphans
     ├── fleet-lib.sh             # shared helpers sourced by the scripts above
     └── fleet.config.example
 ```
@@ -32,7 +33,7 @@ git clone <repo-url> fleet && cd fleet
 ./install.sh                 # symlinks (git pull auto-updates); use --copy for detached copies
 ```
 Installs: skills → `~/.claude/skills/` · commands → `~/.local/bin/` (`fleet-init`,
-`fleet-send`, `fleet-down`) · config → `~/.config/fleet/fleet.config`.
+`fleet-send`, `fleet-down`, `fleet-status`) · config → `~/.config/fleet/fleet.config`.
 Re-running `./install.sh` after a `git pull` picks up new commands (existing links are kept).
 Add to PATH if needed: `export PATH="$HOME/.local/bin:$PATH"`.
 
@@ -56,6 +57,7 @@ $EDITOR ~/.config/fleet/fleet.config     # set TARGET_REPO, BASE_BRANCH, WORKERS
 fleet-init                               # run in a REAL terminal — launches autonomous agents
 fleet-send mgr "Add slugify() to src/strings.js with tests; npm test must pass"
 tmux attach -t mgr                       # watch (Ctrl-b d to detach)
+fleet-status                             # what is running, CPU/RAM per session
 fleet-down --wipe                        # stop everything + remove worktrees
 ```
 
@@ -89,6 +91,8 @@ Worktrees default to `$TARGET_REPO/../fleet-wt`, so they're already separated pe
 terminal (`ppid 1`); closing the tab only detaches the client. Agents, their MCP servers and any
 dev server they started keep running — and keep using CPU, RAM and tokens — until `fleet-down`.
 
+- `fleet-status` — per session: attached?, idle time, process count, CPU% and RSS of the whole
+  process tree; plus orphans inside the worktrees.
 - `fleet-down` — collects every process **before** closing the sessions (agent + MCP servers +
   background shells, `ppid 1` orphans whose cwd is in `WORKTREE_ROOT`),
   closes the sessions, then SIGTERM → wait `KILL_GRACE` s → SIGKILL.

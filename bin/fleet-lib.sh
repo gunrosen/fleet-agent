@@ -102,3 +102,20 @@ fleet_orphans_in() {
       if ((dir == root || index(dir, root "/") == 1) && ppid[pid] == 1 && comm[pid] !~ /(^|\/)tmux$/) print pid
     }'
 }
+
+# Sum %CPU and RSS (MB) over the given PIDs: prints "<cpu> <mb>".
+fleet_usage() {
+  if [[ $# -eq 0 ]]; then echo "0.0 0"; return 0; fi
+  { ps -o pcpu=,rss= -p "$(echo "$*" | tr ' ' ',')" 2>/dev/null || true; } \
+    | awk '{ c += $1; r += $2 } END { printf "%.1f %d\n", c, r / 1024 }'
+}
+
+# Seconds -> compact duration, e.g. 7380 -> 2h03m.
+fleet_dur() {
+  local s="$1"
+  if   (( s >= 86400 )); then printf '%dd%02dh' $((s / 86400)) $((s % 86400 / 3600))
+  elif (( s >= 3600 ));  then printf '%dh%02dm' $((s / 3600)) $((s % 3600 / 60))
+  elif (( s >= 60 ));    then printf '%dm' $((s / 60))
+  else printf '%ds' "$s"
+  fi
+}

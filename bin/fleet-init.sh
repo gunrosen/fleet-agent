@@ -111,4 +111,5 @@ echo
 echo "Roster written to: $ROSTER"
 echo "Attach:   tmux attach -t ${mgr_sess}        (or ${SESSION_PREFIX}worker-1, ...)"
 echo "Kick off: fleet-send ${mgr_sess} \"<your feature request>\""
+echo "Status:   fleet-status      (closing the terminal only detaches — agents keep running)"
 echo "Tear down: fleet-down${SESSION_PREFIX:+  (same SESSION_PREFIX in config)}"

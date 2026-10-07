@@ -11,7 +11,7 @@ for name in agents-communication fleet-manager fleet-worker; do
   t="$SKILLS_DST/$name"
   [[ -e "$t" || -L "$t" ]] && { rm -rf "$t"; echo "  - removed skill $name"; }
 done
-for cmd in fleet-init fleet-send fleet-down fleet-lib.sh; do
+for cmd in fleet-init fleet-send fleet-down fleet-status fleet-lib.sh; do
   t="$BIN_DST/$cmd"
   [[ -e "$t" || -L "$t" ]] && { rm -f "$t"; echo "  - removed command $cmd"; }
 done

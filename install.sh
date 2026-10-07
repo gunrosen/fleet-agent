@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh — install the Fleet toolkit (Model B: launcher-centric).
 #   * skills  -> ~/.claude/skills/         (global, loaded by every claude session)
-#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down on PATH,
+#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down, fleet-status on PATH,
 #                                           + fleet-lib.sh they source)
 #   * config  -> ~/.config/fleet/fleet.config  (from the example, if absent)
 #
@@ -51,7 +51,7 @@ done
 # --- scripts -> ~/.local/bin (strip .sh for clean command names) -------------
 echo "-- scripts -> $BIN_DST"
 mkdir -p "$BIN_DST"
-for s in "$REPO"/bin/fleet-init.sh "$REPO"/bin/fleet-send.sh "$REPO"/bin/fleet-down.sh; do
+for s in "$REPO"/bin/fleet-{init,send,down,status}.sh; do
   chmod +x "$s"
   cmd="$(basename "$s" .sh)"
   link_or_copy "$s" "$BIN_DST/$cmd"
@@ -84,4 +84,5 @@ echo "Done. Next:"
 echo "  1) edit  $CFG_DST   (set TARGET_REPO to your project, tune WORKERS)"
 echo "  2) run   fleet-init                  (from anywhere)"
 echo "  3) task  fleet-send mgr \"<feature request>\""
-echo "  4) stop  fleet-down --wipe"
+echo "  4) check fleet-status              (closing the terminal does NOT stop agents)"
+echo "  5) stop  fleet-down --wipe"
