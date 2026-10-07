@@ -32,6 +32,7 @@ git clone <repo-url> fleet && cd fleet
 ```
 Installs: skills → `~/.claude/skills/` · commands → `~/.local/bin/` (`fleet-init`,
 `fleet-send`, `fleet-down`) · config → `~/.config/fleet/fleet.config`.
+Re-running `./install.sh` after a `git pull` picks up new commands (existing links are kept).
 Add to PATH if needed: `export PATH="$HOME/.local/bin:$PATH"`.
 
 ## How it works

@@ -21,6 +21,9 @@ CFG_DST="$CFG_DIR/fleet.config"
 
 link_or_copy() {  # $1 src  $2 dst
   local src="$1" dst="$2"
+  if [[ "$MODE" == "link" && -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
+    return 0  # already linked to this repo
+  fi
   if [[ -e "$dst" || -L "$dst" ]]; then
     local bak="$dst.bak.$$"
     mv "$dst" "$bak"; echo "    backed up existing -> $bak"
