@@ -8,8 +8,12 @@
 #
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${FLEET_CONFIG:-}"
+SELF="${BASH_SOURCE[0]}"
+while [[ -L "$SELF" ]]; do t="$(readlink "$SELF")"; [[ "$t" == /* ]] && SELF="$t" || SELF="$(dirname "$SELF")/$t"; done
+# shellcheck source=fleet-lib.sh
+source "$(cd "$(dirname "$SELF")" && pwd)/fleet-lib.sh"
+
+CONFIG_FILE=""
 WIPE=0
 
 while [[ $# -gt 0 ]]; do
@@ -21,20 +25,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$CONFIG_FILE" ]]; then
-  for c in "./fleet.config" "$HOME/.config/fleet/fleet.config"; do
-    [[ -f "$c" ]] && { CONFIG_FILE="$c"; break; }
-  done
-fi
-[[ -n "$CONFIG_FILE" && -f "$CONFIG_FILE" ]] || { echo "no config found (see fleet-init --help)" >&2; exit 1; }
-# shellcheck disable=SC1090
-source "$CONFIG_FILE"
-SESSION_PREFIX="${SESSION_PREFIX:-}"
+fleet_load_config "$CONFIG_FILE" || { echo "no config found (see fleet-init --help)" >&2; exit 1; }
 
 kill_sess() {
   local s="$1"
-  if tmux has-session -t "$s" 2>/dev/null; then
-    tmux kill-session -t "$s"; echo "  - killed session $s"
+  if tmux has-session -t "=$s" 2>/dev/null; then
+    tmux kill-session -t "=$s"; echo "  - killed session $s"
   fi
 }
 

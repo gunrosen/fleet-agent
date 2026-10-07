@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # install.sh — install the Fleet toolkit (Model B: launcher-centric).
 #   * skills  -> ~/.claude/skills/         (global, loaded by every claude session)
-#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down on PATH)
+#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down on PATH,
+#                                           + fleet-lib.sh they source)
 #   * config  -> ~/.config/fleet/fleet.config  (from the example, if absent)
 #
 # By default it SYMLINKS, so `git pull` in this repo auto-updates your install.
@@ -56,6 +57,9 @@ for s in "$REPO"/bin/fleet-init.sh "$REPO"/bin/fleet-send.sh "$REPO"/bin/fleet-d
   link_or_copy "$s" "$BIN_DST/$cmd"
   echo "  + $cmd"
 done
+# shared helpers, sourced (not executed) by the commands above; kept next to them for --copy
+link_or_copy "$REPO/bin/fleet-lib.sh" "$BIN_DST/fleet-lib.sh"
+echo "  + fleet-lib.sh"
 
 # --- config -> ~/.config/fleet/fleet.config (never overwrite) ----------------
 echo "-- config -> $CFG_DST"

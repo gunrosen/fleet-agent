@@ -7,11 +7,15 @@
 #
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SELF="${BASH_SOURCE[0]}"
+while [[ -L "$SELF" ]]; do t="$(readlink "$SELF")"; [[ "$t" == /* ]] && SELF="$t" || SELF="$(dirname "$SELF")/$t"; done
+SCRIPT_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+# shellcheck source=fleet-lib.sh
+source "$SCRIPT_DIR/fleet-lib.sh"
 
 # Config resolution order (first hit wins):
 #   --config <path>  >  $FLEET_CONFIG  >  ./fleet.config  >  ~/.config/fleet/fleet.config
-CONFIG_FILE="${FLEET_CONFIG:-}"
+CONFIG_FILE=""
 
 # --- arg parsing (all optional; config supplies defaults) --------------------
 while [[ $# -gt 0 ]]; do
@@ -24,19 +28,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$CONFIG_FILE" ]]; then
-  for c in "./fleet.config" "$HOME/.config/fleet/fleet.config"; do
-    [[ -f "$c" ]] && { CONFIG_FILE="$c"; break; }
-  done
-fi
-[[ -n "$CONFIG_FILE" && -f "$CONFIG_FILE" ]] || {
+fleet_load_config "$CONFIG_FILE" || {
   echo "no config found. Create one from the example:" >&2
   echo "  mkdir -p ~/.config/fleet && cp \"$SCRIPT_DIR/fleet.config.example\" ~/.config/fleet/fleet.config" >&2
   echo "or pass --config <path> / set FLEET_CONFIG / run from a dir containing fleet.config" >&2
   exit 1; }
-echo "using config: $CONFIG_FILE"
-# shellcheck disable=SC1090
-source "$CONFIG_FILE"
+echo "using config: $FLEET_CONFIG_FILE"
 
 # --- preflight ---------------------------------------------------------------
 command -v tmux  >/dev/null || { echo "tmux not found" >&2; exit 1; }
@@ -52,9 +49,8 @@ fi
 git -C "$TARGET_REPO" rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1 || {
   echo "base branch '$BASE_BRANCH' not found in $TARGET_REPO" >&2; exit 1; }
 
-# Namespace for tmux session names so multiple projects can run in parallel.
-# Empty = plain names (mgr, worker-1). Set e.g. SESSION_PREFIX="A-" -> A-mgr, A-worker-1.
-SESSION_PREFIX="${SESSION_PREFIX:-}"
+# SESSION_PREFIX namespaces tmux session names so multiple projects can run in parallel
+# (empty = plain names: mgr, worker-1). fleet_load_config defaults it.
 
 mkdir -p "$WORKTREE_ROOT"
 mkdir -p "$TARGET_REPO/fleet"
@@ -75,7 +71,7 @@ echo "prefix      : '${SESSION_PREFIX:-<none>}'"
 # text (which contains quotes) never has to survive shell re-quoting.
 launch() {
   local sess="$1" dir="$2" model="$3" ident="$4"
-  if tmux has-session -t "$sess" 2>/dev/null; then
+  if tmux has-session -t "=$sess" 2>/dev/null; then
     echo "  ! session '$sess' already exists — skipping (run fleet-down.sh first)"; return
   fi
   local identf="$TARGET_REPO/fleet/ident-$sess.txt"

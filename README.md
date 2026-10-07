@@ -21,6 +21,7 @@ fleet/
     ├── fleet-init.sh            # spin up manager + workers (worktrees + tmux)
     ├── fleet-send.sh            # 2-step send to a Claude Code TUI (fixes swallowed Enter)
     ├── fleet-down.sh            # tear down (--wipe also removes worktrees)
+    ├── fleet-lib.sh             # shared helpers sourced by the scripts above
     └── fleet.config.example
 ```
 
