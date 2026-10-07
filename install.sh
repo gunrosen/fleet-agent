@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # install.sh — install the Fleet toolkit (Model B: launcher-centric).
 #   * skills  -> ~/.claude/skills/         (global, loaded by every claude session)
-#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down on PATH)
+#   * scripts -> ~/.local/bin/             (fleet-init, fleet-send, fleet-down, fleet-status,
+#                                           fleet-proc on PATH, + fleet-lib.sh they source)
 #   * config  -> ~/.config/fleet/fleet.config  (from the example, if absent)
 #
 # By default it SYMLINKS, so `git pull` in this repo auto-updates your install.
@@ -21,6 +22,9 @@ CFG_DST="$CFG_DIR/fleet.config"
 
 link_or_copy() {  # $1 src  $2 dst
   local src="$1" dst="$2"
+  if [[ "$MODE" == "link" && -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
+    return 0  # already linked to this repo
+  fi
   if [[ -e "$dst" || -L "$dst" ]]; then
     local bak="$dst.bak.$$"
     mv "$dst" "$bak"; echo "    backed up existing -> $bak"
@@ -47,12 +51,15 @@ done
 # --- scripts -> ~/.local/bin (strip .sh for clean command names) -------------
 echo "-- scripts -> $BIN_DST"
 mkdir -p "$BIN_DST"
-for s in "$REPO"/bin/fleet-init.sh "$REPO"/bin/fleet-send.sh "$REPO"/bin/fleet-down.sh; do
+for s in "$REPO"/bin/fleet-{init,send,down,status,proc}.sh; do
   chmod +x "$s"
   cmd="$(basename "$s" .sh)"
   link_or_copy "$s" "$BIN_DST/$cmd"
   echo "  + $cmd"
 done
+# shared helpers, sourced (not executed) by the commands above; kept next to them for --copy
+link_or_copy "$REPO/bin/fleet-lib.sh" "$BIN_DST/fleet-lib.sh"
+echo "  + fleet-lib.sh"
 
 # --- config -> ~/.config/fleet/fleet.config (never overwrite) ----------------
 echo "-- config -> $CFG_DST"
@@ -77,4 +84,5 @@ echo "Done. Next:"
 echo "  1) edit  $CFG_DST   (set TARGET_REPO to your project, tune WORKERS)"
 echo "  2) run   fleet-init                  (from anywhere)"
 echo "  3) task  fleet-send mgr \"<feature request>\""
-echo "  4) stop  fleet-down --wipe"
+echo "  4) check fleet-status              (closing the terminal does NOT stop agents)"
+echo "  5) stop  fleet-down --wipe"

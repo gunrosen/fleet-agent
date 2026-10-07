@@ -6,3 +6,4 @@ fleet.config
 # manager runtime artifacts, if ever created inside the repo
 fleet/ident-*.txt
 fleet/roster.tsv
+fleet/procs.tsv
